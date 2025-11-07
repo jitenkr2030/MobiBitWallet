@@ -1,0 +1,174 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  wallets       Wallet[]
+  transactions  Transaction[]
+  backupRecords BackupRecord[]
+  settings      UserSettings?
+
+  @@map("users")
+}
+
+// User settings and preferences
+model UserSettings {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  currency     String   @default("USD")
+  language     String   @default("en")
+  theme        String   @default("light")
+  biometricEnabled Boolean @default(false)
+  notificationsEnabled Boolean @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+// Wallet model for multi-wallet support
+model Wallet {
+  id          String   @id @default(cuid())
+  name        String
+  type        WalletType
+  description String?
+  address     String   @unique
+  publicKey   String
+  encryptedPrivateKey String
+  balance     Float    @default(0)
+  currency    String   @default("BTC")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@map("wallets")
+}
+
+// Transaction model for tracking all wallet activities
+model Transaction {
+  id            String        @id @default(cuid())
+  type          TransactionType
+  amount        Float
+  fee           Float         @default(0)
+  currency      String        @default("BTC")
+  fromAddress   String?
+  toAddress     String?
+  txHash        String?       @unique
+  status        TransactionStatus
+  confirmations Int           @default(0)
+  description   String?
+  metadata      String?       // JSON string for additional data
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  walletId      String
+  wallet        Wallet        @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("transactions")
+}
+
+// Backup records for wallet recovery
+model BackupRecord {
+  id          String   @id @default(cuid())
+  filename    String
+  encryptedData String
+  checksum    String
+  size        Int
+  backupType  BackupType
+  location    String   // "local", "cloud", etc.
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime?
+
+  // Relations
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("backup_records")
+}
+
+// Market data for price tracking
+model MarketData {
+  id          String   @id @default(cuid())
+  symbol      String   // "BTC", "ETH", etc.
+  name        String
+  price       Float
+  change24h   Float
+  change7d    Float
+  volume24h   Float
+  marketCap   Float
+  lastUpdated DateTime @default(now())
+
+  @@unique([symbol])
+  @@map("market_data")
+}
+
+// Contact book for frequent transactions
+model Contact {
+  id          String   @id @default(cuid())
+  name        String
+  address     String
+  currency    String   @default("BTC")
+  description String?
+  isFavorite  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("contacts")
+}
+
+// Enums
+enum WalletType {
+  PERSONAL
+  BUSINESS
+  SAVINGS
+}
+
+enum TransactionType {
+  SENT
+  RECEIVED
+  TRANSFER
+  MINING_REWARD
+  STAKING_REWARD
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  CANCELLED
+}
+
+enum BackupType {
+  FULL
+  MNEMONIC
+  PRIVATE_KEY
+  SETTINGS
+}

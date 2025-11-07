@@ -1,0 +1,1 @@
+export { LightningComponent } from './lightning-component';
